@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>កម្មវិធីបង្រៀនតម្លៃលេខតាមខ្ទង់ - Base-10 Blocks & Arrow Cards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700;900&family=Lora:wght@700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Kantumruy Pro', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+    }
+    .math-grid {
+      background-color: #ffffff;
+      background-image:
+        linear-gradient(to right, rgba(203, 213, 225, 0.6) 1.5px, transparent 1.5px),
+        linear-gradient(to bottom, rgba(203, 213, 225, 0.6) 1.5px, transparent 1.5px);
+      background-size: 30px 30px;
+    }
+    .math-grid.no-grid {
+      background-image: none !important;
+    }
+    .draggable-item {
+      position: absolute;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+      will-change: left, top, transform;
+      transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1), top 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .draggable-item:active {
+      cursor: grabbing;
+    }
+    .draggable-item.dragging {
+      cursor: grabbing !important;
+      transition: none !important;
+      z-index: 100 !important;
+      transform: scale(1.05);
+      filter: drop-shadow(0 12px 18px rgba(0,0,0,0.25));
+    }
+    .block-selected {
+      filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.95)) drop-shadow(0 0 2px #2563eb);
+      outline: 3px dashed #2563eb;
+      outline-offset: 4px;
+      border-radius: 8px;
+    }
+    .drawing-selected {
+      filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.95));
+      outline: 2px dashed #2563eb;
+      outline-offset: 4px;
+      border-radius: 6px;
+    }
+    .selection-marquee {
+      position: absolute;
+      border: 2px dashed #2563eb;
+      background: rgba(59, 130, 246, 0.2);
+      pointer-events: none;
+      z-index: 60;
+      border-radius: 4px;
+    }
+    .cartoon-char {
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .cartoon-char:active {
+      transform: scale(1.15) rotate(5deg);
+    }
+    .modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+    }
+    @keyframes smoothFadeIn {
+      0% { opacity: 0; transform: scale(0.85); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .anim-spawn {
+      animation: smoothFadeIn 0.2s ease-out forwards;
+    }
+    .pen-opt-btn.active {
+      background-color: rgba(59, 130, 246, 0.25);
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px #38bdf8;
+    }
+    #bottomFooter {
+      transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    #bottomFooter.collapsed {
+      transform: translateY(100%);
+    }
+
+    body.pen-mode #layerBlocks,
+    body.pen-mode #layerCards,
+    body.pen-mode #layerDrawings,
+    body.pen-mode #layerAbacus {
+      pointer-events: none !important;
+    }
+    body.pen-mode #gridBoard {
+      cursor: crosshair;
+    }
+
+    input[type=range].pen-size-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #475569;
+      height: 5px;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type=range].pen-size-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex flex-col bg-slate-100 overflow-hidden">
+
+  <!-- TOP HEADER -->
+  <header class="w-full h-12 bg-white border-b-2 border-slate-300 px-2 sm:px-4 flex items-center justify-between shrink-0 z-30 shadow-sm overflow-x-auto" style="scrollbar-width: none;">
+    <div class="flex items-center gap-1.5 shrink-0">
+      <div class="flex items-center gap-1 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-lg shadow-inner">
+        <span class="text-lg">🐘</span>
+        <span class="text-[11px] font-black tracking-tight text-slate-700 uppercase">គណិតវិទ្យា</span>
+      </div>
+      <h1 class="text-xs sm:text-base font-extrabold text-slate-800 ml-1 truncate">តម្លៃលេខតាមខ្ទង់</h1>
+    </div>
+
+    <!-- Right Header Controls -->
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button id="btnHeaderFullscreen" class="px-2 py-1 bg-white border-2 border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition flex items-center justify-center gap-1" title="ពេញអេក្រង់ (Fullscreen)">
+        <svg class="w-4 h-4 text-slate-700 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 4H5a2 2 0 0 0-2 2v2"/>
+          <path d="M17 4h2a2 2 0 0 1 2 2v2"/>
+          <path d="M7 20H5a2 2 0 0 1-2-2v-2"/>
+          <path d="M17 20h2a2 2 0 0 0 2-2v-2"/>
+        </svg>
+      </button>
+
+      <button id="btnAutoRegroupAll" class="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 active:scale-95 text-white rounded-lg text-xs font-black shadow-md transition flex items-center gap-1 border border-emerald-400" title="ផ្ដុំស្វ័យប្រវត្តិតាមលំដាប់ខ្ទង់">
+        <span>⚡</span>
+        <span class="hidden md:inline">ផ្ដុំស្វ័យប្រវត្តិ</span>
+      </button>
+
+      <button id="btnPushArrange" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-black shadow-md transition flex items-center gap-1" title="រុញតម្រៀបបន្ទះទាំងអស់តាមជួរខ្ទង់">
+        <span>🔲</span>
+        <span class="hidden md:inline">រុញរៀបជួរ</span>
+      </button>
+
+      <button id="btnDecomposeSelected" class="px-2.5 py-1 bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-black shadow-md transition hidden items-center gap-1" title="បំបែកបន្ទះដែលបានរើស">
+        <span>🔨</span>
+        <span>បំបែក</span>
+      </button>
+
+      <button id="btnDecomposeAndPush" class="px-2.5 py-1 bg-purple-600 active:scale-95 text-white rounded-lg text-xs font-black shadow-md transition hidden items-center gap-1" title="បំបែករួចរុញពង្រាយទៅជួរខាងស្តាំ">
+        <span>💨</span>
+        <span>បំបែក & រុញ</span>
+      </button>
+
+      <button id="btnDeselectAllHeader" class="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-black shadow-sm active:scale-95 transition hidden items-center gap-1 border border-slate-300" title="ដោះការជ្រើសរើសទាំងអស់">
+        <span class="text-rose-600">✕</span>
+        <span>ដោះរើស</span>
+      </button>
+
+      <button id="btnMultiSelect" class="px-2 py-1 bg-white border-2 border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm active:scale-95 transition flex items-center gap-1" title="បើក/បិទ មុខងាររើសច្រើន">
+        <span>☑</span>
+        <span class="hidden md:inline">រើសច្រើន</span>
+      </button>
+
+      <button id="btnSelectAll" class="px-2 py-1 bg-white border-2 border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm active:scale-95 transition" title="រើសដុំទាំងអស់លើក្ដារ">
+        ទាំងអស់
+      </button>
+
+      <button id="btnDeleteSelected" class="px-2 py-1 bg-rose-50 border-2 border-rose-300 text-rose-700 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled title="លុបដុំដែលបានរើស">
+        🗑
+      </button>
+
+      <div class="w-0.5 h-6 bg-slate-300 mx-0.5 hidden sm:block"></div>
+
+      <button id="btnOpenColorModal" class="px-2 py-1 bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-lg text-xs font-black shadow-sm active:scale-95 transition flex items-center gap-1">
+        <span>🎨</span>
+        <span class="hidden md:inline">ពណ៌</span>
+      </button>
+
+      <button id="btnToggleLang" class="px-2 py-1 bg-white border-2 border-slate-300 rounded-lg text-xs font-bold text-slate-700 shadow-sm active:scale-95 transition flex items-center gap-1">
+        <span>🔢</span>
+        <span id="txtNumSystem">0</span>
+      </button>
+
+      <button id="btnResetCanvas" class="px-2 py-1 bg-rose-50 border-2 border-rose-300 text-rose-700 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition">
+        កំណត់ឡើងវិញ
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CANVAS -->
+  <main class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-13 sm:w-16 bg-gradient-to-b from-sky-200 via-blue-100 to-sky-200 border-r-3 border-sky-400 flex flex-col items-center py-2 gap-2 overflow-y-auto shrink-0 z-20 select-none shadow-md" style="scrollbar-width: none;">
+      <div id="cartoonContainer" class="flex flex-col items-center gap-2 w-full"></div>
+    </aside>
+
+    <!-- CENTER INTERACTIVE GRID BOARD -->
+    <div id="gridBoard" class="flex-1 relative math-grid overflow-hidden">
+      <div id="selectionMarquee" class="selection-marquee hidden"></div>
+      
+      <!-- Transform Container -->
+      <div id="zoomContainer" class="absolute inset-0 origin-top-left transition-transform duration-75">
+        <div id="layerBlocks" class="absolute inset-0 pointer-events-auto z-10"></div>
+        <div id="layerCards" class="absolute inset-0 pointer-events-auto z-25"></div>
+        <div id="layerDrawings" class="absolute inset-0 pointer-events-auto z-30"></div>
+        <canvas id="activeDrawCanvas" class="absolute inset-0 pointer-events-none z-35"></canvas>
+      </div>
+
+      <!-- Floating Selection Bar -->
+      <div id="floatingSelectBar" class="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 text-white backdrop-blur-md px-4 py-2 rounded-2xl shadow-2xl border border-slate-600 flex items-center gap-3 hidden">
+        <div class="flex items-center gap-1.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping"></span>
+          <span id="selectedCountText" class="text-xs font-bold text-slate-200">បានរើស 1</span>
+        </div>
+        <div class="h-4 w-px bg-slate-600"></div>
+        <button id="btnDeselectFloating" class="px-2.5 py-1 bg-white/20 hover:bg-rose-500/80 active:scale-95 text-white text-xs font-black rounded-lg transition flex items-center gap-1 cursor-pointer">
+          <span>✕</span>
+          <span>ដោះការរើស</span>
+        </button>
+      </div>
+
+      <!-- Abacus Mode Layer -->
+      <div id="layerAbacus" class="absolute inset-0 z-20 hidden flex items-center justify-center pointer-events-none">
+        <div class="w-full max-w-2xl h-72 sm:h-80 flex justify-around items-end px-4 sm:px-8 pb-6 sm:pb-8 border-b-8 border-slate-800 bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl pointer-events-auto mx-2">
+          <div class="flex flex-col items-center h-full justify-between">
+            <span id="abacusHeaderTt" class="font-black text-base sm:text-xl">ម៉ឺន</span>
+            <div id="abacusTt" class="relative w-4 h-52 sm:h-60 bg-slate-400 rounded-full flex flex-col-reverse items-center py-1 gap-1.5 shadow-inner"></div>
+          </div>
+          <div class="flex flex-col items-center h-full justify-between">
+            <span id="abacusHeaderTh" class="font-black text-base sm:text-xl">ពាន់</span>
+            <div id="abacusTh" class="relative w-4 h-52 sm:h-60 bg-slate-400 rounded-full flex flex-col-reverse items-center py-1 gap-1.5 shadow-inner"></div>
+          </div>
+          <div class="flex flex-col items-center h-full justify-between">
+            <span id="abacusHeaderH" class="font-black text-base sm:text-xl">រយ</span>
+            <div id="abacusH" class="relative w-4 h-52 sm:h-60 bg-slate-400 rounded-full flex flex-col-reverse items-center py-1 gap-1.5 shadow-inner"></div>
+          </div>
+          <div class="flex flex-col items-center h-full justify-between">
+            <span id="abacusHeaderT" class="font-black text-base sm:text-xl">ដប់</span>
+            <div id="abacusT" class="relative w-4 h-52 sm:h-60 bg-slate-400 rounded-full flex flex-col-reverse items-center py-1 gap-1.5 shadow-inner"></div>
+          </div>
+          <div class="flex flex-col items-center h-full justify-between">
+            <span id="abacusHeaderO" class="font-black text-base sm:text-xl">រាយ</span>
+            <div id="abacusO" class="relative w-4 h-52 sm:h-60 bg-slate-400 rounded-full flex flex-col-reverse items-center py-1 gap-1.5 shadow-inner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PEN OPTIONS POPUP -->
+      <div id="penOptionsBar" class="absolute z-50 pointer-events-auto hidden shadow-2xl bg-[#2d2c3a] border border-slate-700/90 rounded-2xl p-2.5 flex flex-col gap-2 select-none bottom-3 left-4">
+        <div class="flex items-end gap-2.5">
+          <button data-brush="pencil" type="button" class="pen-opt-btn flex flex-col items-center gap-1 p-1 rounded-xl border border-transparent hover:bg-white/10 transition active:scale-95 cursor-pointer" title="ខ្មៅដៃ">
+            <svg class="w-7 h-12" viewBox="0 0 32 60" fill="none">
+              <polygon points="16,4 4,24 28,24" id="pencilTipColor" fill="#84cc16"/>
+              <polygon points="4,24 28,24 28,28 4,28" fill="#fef08a"/>
+              <rect x="4" y="28" width="24" height="28" id="pencilBodyColor" fill="#65a30d" rx="2"/>
+              <path d="M12,28 L12,56 M20,28 L20,56" stroke="#4d7c0f" stroke-width="1.5"/>
+            </svg>
+            <span class="text-[9px] font-bold text-slate-300">ខ្មៅដៃ</span>
+          </button>
+
+          <button data-brush="pen" type="button" class="pen-opt-btn active flex flex-col items-center gap-1 p-1 rounded-xl border border-transparent hover:bg-white/10 transition active:scale-95 cursor-pointer" title="ប៊ិចទឹក">
+            <svg class="w-7 h-12" viewBox="0 0 32 60" fill="none">
+              <path d="M16,6 C16,6 8,18 8,24 L24,24 C24,18 16,6 16,6 Z" id="penTipColor" fill="#a855f7"/>
+              <rect x="7" y="24" width="18" height="6" fill="#94a3b8"/>
+              <rect x="5" y="30" width="22" height="26" fill="#475569" rx="2"/>
+            </svg>
+            <span class="text-[9px] font-bold text-slate-300">ប៊ិចទឹក</span>
+          </button>
+
+          <button data-brush="highlighter" type="button" class="pen-opt-btn flex flex-col items-center gap-1 p-1 rounded-xl border border-transparent hover:bg-white/10 transition active:scale-95 cursor-pointer" title="ហាយឡាយ">
+            <svg class="w-7 h-12" viewBox="0 0 32 60" fill="none">
+              <polygon points="8,12 24,6 24,24 8,24" id="highlighterTipColor" fill="#facc15"/>
+              <rect x="7" y="24" width="18" height="6" fill="#cbd5e1"/>
+              <path d="M6,30 C6,30 10,34 10,40 L10,56 L22,56 L22,40 C22,34 26,30 26,30 Z" fill="#64748b"/>
+            </svg>
+            <span class="text-[9px] font-bold text-slate-300">ហាយឡាយ</span>
+          </button>
+
+          <button data-brush="eraser" type="button" class="pen-opt-btn flex flex-col items-center gap-1 p-1 rounded-xl border-2 border-transparent bg-slate-800/80 hover:bg-white/10 transition active:scale-95 cursor-pointer" title="ជ័រលុប">
+            <div class="w-7 h-12 flex flex-col items-center justify-between rounded-t-full bg-slate-300 border border-slate-400 overflow-hidden shadow-inner">
+              <div class="w-full h-6 bg-slate-200"></div>
+              <div class="w-full h-6 bg-slate-400"></div>
+            </div>
+            <span class="text-[9px] font-black text-slate-200">ជ័រលុប</span>
+          </button>
+
+          <div class="h-10 w-px bg-slate-700/80 mx-0.5"></div>
+          
+          <div class="flex flex-col gap-1 items-center justify-center pb-1">
+            <div class="flex gap-1.5">
+              <button data-pencolor="#1e293b" class="btn-quick-color w-4 h-4 rounded-full border border-white/50 active:scale-75 transition" style="background:#1e293b;"></button>
+              <button data-pencolor="#ef4444" class="btn-quick-color w-4 h-4 rounded-full border border-white/50 active:scale-75 transition" style="background:#ef4444;"></button>
+              <button data-pencolor="#2563eb" class="btn-quick-color w-4 h-4 rounded-full border border-white/50 active:scale-75 transition" style="background:#2563eb;"></button>
+            </div>
+            <div class="flex gap-1.5">
+              <button data-pencolor="#16a34a" class="btn-quick-color w-4 h-4 rounded-full border border-white/50 active:scale-75 transition" style="background:#16a34a;"></button>
+              <button data-pencolor="#facc15" class="btn-quick-color w-4 h-4 rounded-full border border-white/50 active:scale-75 transition" style="background:#facc15;"></button>
+              <button data-pencolor="#a855f7" class="btn-quick-color w-4 h-4 rounded-full border border-white/50 active:scale-75 transition" style="background:#a855f7;"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-1.5 border-t border-slate-700/70 flex items-center justify-between gap-2 px-1">
+          <span class="text-[10px] font-bold text-slate-300">ទំហំ៖</span>
+          <input type="range" id="brushSizeSlider" min="1" max="40" value="4" class="pen-size-slider flex-1 cursor-pointer">
+          <div class="flex items-center justify-center w-6 h-6 rounded-md bg-slate-800 border border-slate-600">
+            <div id="brushSizePreview" class="rounded-full bg-sky-400 transition-all duration-75" style="width: 5px; height: 5px;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM CONTROL TOOLBAR -->
+  <div class="relative w-full shrink-0 z-30 flex justify-center">
+    <button id="btnToggleBottomBar" class="absolute -top-7 px-3 py-0.5 bg-slate-200 hover:bg-white text-slate-700 border-2 border-b-0 border-slate-300 rounded-t-xl font-bold text-xs shadow-md active:scale-95 transition flex items-center gap-1 cursor-pointer">
+      <span id="iconToggleBottom">⌄</span>
+      <span id="txtToggleBottom" class="hidden sm:inline">លាក់របារ</span>
+    </button>
+
+    <footer id="bottomFooter" class="w-full bg-slate-100 border-t-3 border-slate-300 py-2 px-3 flex justify-between items-center shadow-lg overflow-x-auto" style="scrollbar-width: none;">
+      
+      <div class="flex items-center gap-2 shrink-0 select-none pr-3">
+        <!-- Capsule 1: Pointer, Pen, Color, Clear -->
+        <div class="bg-[#2d2c3a] border border-slate-700/90 rounded-full px-2.5 py-1.5 flex items-center gap-2 shadow-md">
+          <button id="btnToolPointer" type="button" class="w-8 h-8 rounded-full bg-white/25 text-white flex items-center justify-center transition active:scale-90 cursor-pointer shadow-sm" title="សញ្ញាព្រួញ (Pointer)">
+            <svg class="w-4 h-4 pointer-events-none drop-shadow" viewBox="0 0 24 24" fill="none">
+              <path d="M4 3L11.5 21L14.5 13.5L22 10.5L4 3Z" fill="#ffffff" stroke="#1e293b" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <button id="btnToolPen" type="button" class="w-8 h-8 rounded-full hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition active:scale-90 cursor-pointer relative" title="ប៊ិចគូរ (Pen)">
+            <svg class="w-4 h-4 pointer-events-none fill-current" viewBox="0 0 24 24">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+          </button>
+
+          <div class="relative flex items-center justify-center">
+            <button id="btnPenColorDot" type="button" class="w-5 h-5 rounded-full border-2 border-white/60 shadow-md transition active:scale-90 cursor-pointer" style="background-color: #a855f7;" title="រើសពណ៌ប៊ិច"></button>
+            <input type="color" id="nativePenColorInput" value="#a855f7" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+          </div>
+
+          <button id="btnToolClearDraw" type="button" class="w-6 h-6 rounded-full hover:bg-rose-500/30 text-slate-400 hover:text-rose-400 flex items-center justify-center transition active:scale-90 cursor-pointer" title="លុបបន្ទាត់គូរ">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Capsule 2: Fullscreen, Undo, Redo, Grid, Save, Zoom, Pan -->
+        <div class="bg-[#2d2c3a] border border-slate-700/90 rounded-full px-2.5 py-1.5 flex items-center gap-1.5 shadow-md">
+          <button id="sideBtnFullscreen" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="ពេញអេក្រង់ (Fullscreen)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 4H5a2 2 0 0 0-2 2v2"/>
+              <path d="M17 4h2a2 2 0 0 1 2 2v2"/>
+              <path d="M7 20H5a2 2 0 0 1-2-2v-2"/>
+              <path d="M17 20h2a2 2 0 0 0 2-2v-2"/>
+            </svg>
+          </button>
+
+          <button id="sideBtnUndo" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="ត្រឡប់ក្រោយ (Undo)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 14L4 9l5-5"></path>
+              <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"></path>
+            </svg>
+          </button>
+
+          <button id="sideBtnRedo" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="ទៅមុខវិញ (Redo)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 14l5-5-5-5"></path>
+              <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"></path>
+            </svg>
+          </button>
+
+          <button id="sideBtnGrid" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="បង្ហាញ/លាក់ ក្រឡា (Grid)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M3 9h18"></path>
+              <path d="M3 15h18"></path>
+              <path d="M9 3v18"></path>
+              <path d="M15 3v18"></path>
+            </svg>
+          </button>
+
+          <button id="sideBtnSave" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="រក្សាទុកជារូបភាព">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="15" rx="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <path d="M21 14l-5-5L5 18"></path>
+              <path d="M16 19l3 3 3-3"></path>
+              <path d="M19 15v7"></path>
+            </svg>
+          </button>
+
+          <div class="h-4 w-px bg-slate-700/80 mx-0.5"></div>
+
+          <button id="sideBtnZoomIn" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="ពង្រីក (Zoom In)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <line x1="11" y1="8" x2="11" y2="14"></line>
+              <line x1="8" y1="11" x2="14" y2="11"></line>
+            </svg>
+          </button>
+
+          <button id="sideBtnZoomOut" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="បង្រួម (Zoom Out)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <line x1="8" y1="11" x2="14" y2="11"></line>
+            </svg>
+          </button>
+
+          <button id="sideBtnPan" type="button" class="w-7 h-7 rounded-full hover:bg-white/10 active:scale-90 flex items-center justify-center transition cursor-pointer text-slate-300" title="អូសផ្ទៃក្ដារ (Pan)">
+            <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="5 9 2 12 5 15"></polyline>
+              <polyline points="9 5 12 2 15 5"></polyline>
+              <polyline points="15 19 12 22 9 19"></polyline>
+              <polyline points="19 9 22 12 19 15"></polyline>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <line x1="12" y1="2" x2="12" y2="22"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Steppers and Mode Switchers -->
+      <div class="flex items-end justify-center gap-1.5 sm:gap-2.5 min-w-max py-0.5 border-l-2 border-slate-300/80 pl-3">
+        <button id="btnToolAbacus" title="ខ្សែអង្កាំ (Abacus)" class="w-11 sm:w-13 h-15 sm:h-18 bg-white border-2 border-slate-300 rounded-xl flex flex-col items-center justify-center shadow active:scale-95 transition shrink-0">
+          <div class="w-1.5 h-9 bg-slate-400 rounded-full flex flex-col justify-around items-center">
+            <div class="w-3.5 h-2 bg-emerald-600 rounded-full"></div>
+            <div class="w-3.5 h-2 bg-rose-600 rounded-full"></div>
+          </div>
+        </button>
+
+        <button id="btnToolBlocks" title="ថាសចំនួន (Place Value Disks)" class="w-11 sm:w-13 h-15 sm:h-18 bg-sky-200 border-2 border-sky-500 rounded-xl flex items-center justify-center shadow active:scale-95 transition shrink-0">
+          <div class="grid grid-cols-2 gap-1 w-5 h-5 place-items-center">
+            <div id="iconBlockO" class="w-2.5 h-2.5 bg-rose-600 rounded-full border border-black/40"></div>
+            <div id="iconBlockT" class="w-2.5 h-2.5 bg-amber-400 rounded-full border border-black/40"></div>
+            <div id="iconBlockH" class="w-2.5 h-2.5 bg-emerald-600 rounded-full border border-black/40"></div>
+            <div id="iconBlockTh" class="w-2.5 h-2.5 bg-blue-600 rounded-full border border-black/40"></div>
+          </div>
+        </button>
+
+        <button id="btnToolCards" title="កាតព្រួញ (Arrow Cards)" class="w-11 sm:w-13 h-15 sm:h-18 bg-sky-200 border-2 border-sky-500 rounded-xl flex items-center justify-center shadow active:scale-95 transition shrink-0">
+          <svg class="w-7 h-5" viewBox="0 0 40 24">
+            <polygon points="2,2 30,2 38,12 30,22 2,22" id="iconCardPoly" fill="#7c3aed" stroke="#6d28d9" stroke-width="2"/>
+          </svg>
+        </button>
+
+        <button id="btnToolZero" title="កំណត់ទៅ ០ (Zero)" class="w-11 sm:w-13 h-15 sm:h-18 bg-white border-2 border-slate-300 rounded-xl flex items-center justify-center shadow active:scale-95 transition shrink-0">
+          <span class="text-xs font-bold text-sky-700 lowercase italic">zero</span>
+        </button>
+
+        <div class="w-0.5 h-12 bg-slate-300 mx-0.5 shrink-0"></div>
+
+        <!-- STEPPERS -->
+        <div class="flex flex-col items-center shrink-0">
+          <span id="labelTt" class="font-black text-xs sm:text-sm mb-0.5">ម៉ឺន</span>
+          <div id="boxTt" class="w-11 sm:w-13 h-13 sm:h-15 border-2 rounded-xl flex flex-col justify-between items-center p-0.5 shadow">
+            <button data-place="tt" data-delta="1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">+</button>
+            <div class="w-full h-0.5 bg-black/10"></div>
+            <button data-place="tt" data-delta="-1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">−</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center shrink-0">
+          <span id="labelTh" class="font-black text-xs sm:text-sm mb-0.5">ពាន់</span>
+          <div id="boxTh" class="w-11 sm:w-13 h-13 sm:h-15 border-2 rounded-xl flex flex-col justify-between items-center p-0.5 shadow">
+            <button data-place="th" data-delta="1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">+</button>
+            <div class="w-full h-0.5 bg-black/10"></div>
+            <button data-place="th" data-delta="-1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">−</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center shrink-0">
+          <span id="labelH" class="font-black text-xs sm:text-sm mb-0.5">រយ</span>
+          <div id="boxH" class="w-11 sm:w-13 h-13 sm:h-15 border-2 rounded-xl flex flex-col justify-between items-center p-0.5 shadow">
+            <button data-place="h" data-delta="1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">+</button>
+            <div class="w-full h-0.5 bg-black/10"></div>
+            <button data-place="h" data-delta="-1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">−</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center shrink-0">
+          <span id="labelT" class="font-black text-xs sm:text-sm mb-0.5">ដប់</span>
+          <div id="boxT" class="w-11 sm:w-13 h-13 sm:h-15 border-2 rounded-xl flex flex-col justify-between items-center p-0.5 shadow">
+            <button data-place="t" data-delta="1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">+</button>
+            <div class="w-full h-0.5 bg-black/10"></div>
+            <button data-place="t" data-delta="-1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">−</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center shrink-0">
+          <span id="labelO" class="font-black text-xs sm:text-sm mb-0.5">រាយ</span>
+          <div id="boxO" class="w-11 sm:w-13 h-13 sm:h-15 border-2 rounded-xl flex flex-col justify-between items-center p-0.5 shadow">
+            <button data-place="o" data-delta="1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">+</button>
+            <div class="w-full h-0.5 bg-black/10"></div>
+            <button data-place="o" data-delta="-1" class="btn-step w-full flex-1 flex items-center justify-center active:scale-125 font-black text-lg leading-none">−</button>
+          </div>
+        </div>
+
+        <div class="w-0.5 h-12 bg-slate-300 mx-0.5 shrink-0"></div>
+
+        <button id="btnToolStack" title="បំបែក ឬផ្គុំកាតព្រួញ" class="w-11 sm:w-13 h-15 sm:h-18 bg-blue-100 border-2 border-blue-400 rounded-xl flex items-center justify-center shadow active:scale-95 transition shrink-0">
+          <svg class="w-7 h-7 text-blue-600" viewBox="0 0 36 36" fill="currentColor">
+            <polygon points="6,6 30,6 25,12 6,12" opacity="0.9"/>
+            <polygon points="6,14 26,14 21,20 6,20" opacity="0.8"/>
+            <polygon points="6,22 22,22 17,28 6,28" opacity="0.7"/>
+          </svg>
+        </button>
+
+      </div>
+    </footer>
+  </div>
+
+  <!-- COLOR MODAL -->
+  <div id="modalColor" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border-4 border-slate-300 w-full max-w-sm p-4 flex flex-col gap-3">
+      <div class="flex items-center justify-between border-b pb-2 border-slate-200">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xl">🎨</span>
+          <h2 class="text-sm font-black text-slate-800">ជ្រើសរើសពណ៌តាមខ្ទង់</h2>
+        </div>
+        <button id="btnCloseColorModal" class="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 hover:bg-rose-100 text-slate-600 font-black text-base">✕</button>
+      </div>
+
+      <div class="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+        <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full border border-black/20" id="previewTt"></span>
+            <span class="font-bold text-slate-700">ខ្ទង់ម៉ឺន</span>
+          </div>
+          <input type="color" id="pickerTt" value="#7c3aed" class="w-7 h-7 rounded cursor-pointer border border-slate-300">
+        </div>
+
+        <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full border border-black/20" id="previewTh"></span>
+            <span class="font-bold text-slate-700">ខ្ទង់ពាន់</span>
+          </div>
+          <input type="color" id="pickerTh" value="#2563eb" class="w-7 h-7 rounded cursor-pointer border border-slate-300">
+        </div>
+
+        <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full border border-black/20" id="previewH"></span>
+            <span class="font-bold text-slate-700">ខ្ទង់រយ</span>
+          </div>
+          <input type="color" id="pickerH" value="#16a34a" class="w-7 h-7 rounded cursor-pointer border border-slate-300">
+        </div>
+
+        <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full border border-black/20" id="previewT"></span>
+            <span class="font-bold text-slate-700">ខ្ទង់ដប់</span>
+          </div>
+          <input type="color" id="pickerT" value="#facc15" class="w-7 h-7 rounded cursor-pointer border border-slate-300">
+        </div>
+
+        <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full border border-black/20" id="previewO"></span>
+            <span class="font-bold text-slate-700">ខ្ទង់រាយ</span>
+          </div>
+          <input type="color" id="pickerO" value="#dc2626" class="w-7 h-7 rounded cursor-pointer border border-slate-300">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-1">
+        <button id="btnResetColorDefault" class="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-100">
+          ពណ៌ដើម
+        </button>
+        <button id="btnSaveColorModal" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-black shadow active:scale-95">
+          រួចរាល់
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <script>
+    /* APPLICATION STATE */
+    const state = {
+      isKhmer: false,
+      isStacked: true,
+      showBlocks: true,
+      showCards: true,
+      showAbacus: false,
+      isMultiSelect: false,
+      selectedIds: new Set(),
+      selectedDrawingIds: new Set(),
+      zoomLevel: 1,
+      panX: 0,
+      panY: 0,
+      showGrid: true,
+      toolMode: 'pointer',
+      brushType: 'pen',
+      brushSize: 4.5,
+      penColor: '#a855f7',
+      isDrawing: false,
+      isPanning: false,
+      isBottomBarCollapsed: false
+    };
+
+    let blocks = [];
+    let blockIdCounter = 1;
+
+    let drawings = [];
+    let drawIdCounter = 1;
+    let currentStrokePoints = [];
+
+    const historyStack = [];
+    let historyIndex = -1;
+
+    function saveState() {
+      if (historyIndex < historyStack.length - 1) {
+        historyStack.splice(historyIndex + 1);
+      }
+      historyStack.push({
+        blocks: JSON.parse(JSON.stringify(blocks)),
+        drawings: JSON.parse(JSON.stringify(drawings))
+      });
+      if (historyStack.length > 30) historyStack.shift();
+      historyIndex = historyStack.length - 1;
+    }
+
+    function undo() {
+      if (historyIndex > 0) {
+        historyIndex--;
+        const snapshot = historyStack[historyIndex];
+        blocks = JSON.parse(JSON.stringify(snapshot.blocks));
+        drawings = JSON.parse(JSON.stringify(snapshot.drawings || []));
+        clearAllSelection();
+        if (state.isStacked) initCardCoords(true);
+        updateAll();
+        renderDrawings();
+        playTone(400, 'triangle');
+      }
+    }
+
+    function redo() {
+      if (historyIndex < historyStack.length - 1) {
+        historyIndex++;
+        const snapshot = historyStack[historyIndex];
+        blocks = JSON.parse(JSON.stringify(snapshot.blocks));
+        drawings = JSON.parse(JSON.stringify(snapshot.drawings || []));
+        clearAllSelection();
+        if (state.isStacked) initCardCoords(true);
+        updateAll();
+        renderDrawings();
+        playTone(550, 'triangle');
+      }
+    }
+
+    function clearAllSelection() {
+      if (state.selectedIds.size === 0 && state.selectedDrawingIds.size === 0) return;
+      state.selectedIds.clear();
+      state.selectedDrawingIds.clear();
+      updateSelectionUI();
+      playTone(420, 'sine', 0.04);
+    }
+
+    const placeColors = {
+      tt: '#7c3aed',
+      th: '#2563eb',
+      h:  '#16a34a',
+      t:  '#f59e0b',
+      o:  '#dc2626'
+    };
+
+    const cardCoords = {
+      tt: { x: null, y: null },
+      th: { x: null, y: null },
+      h:  { x: null, y: null },
+      t:  { x: null, y: null },
+      o:  { x: null, y: null }
+    };
+
+    function getCounts() {
+      const counts = { tt: 0, th: 0, h: 0, t: 0, o: 0 };
+      blocks.forEach(b => {
+        if (counts[b.type] !== undefined) counts[b.type]++;
+      });
+      return counts;
+    }
+
+    const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+    function formatDigit(d) {
+      if (!state.isKhmer) return String(d);
+      return String(d).split('').map(c => khmerDigits[parseInt(c, 10)] || c).join('');
+    }
+
+    function getActivePlaces() {
+      const c = getCounts();
+      const places = [];
+      if (c.tt > 0) places.push('tt');
+      if (c.th > 0 || places.length > 0) places.push('th');
+      if (c.h > 0 || places.length > 0) places.push('h');
+      if (c.t > 0 || places.length > 0) places.push('t');
+      places.push('o');
+      return places;
+    }
+
+    /* Web Audio Synthesizer */
+    let audioCtx = null;
+    function playTone(freq = 550, type = 'sine', duration = 0.1) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playDecomposeSound() {
+      playTone(600, 'triangle', 0.08);
+      setTimeout(() => playTone(880, 'sine', 0.12), 50);
+      setTimeout(() => playTone(1100, 'sine', 0.14), 100);
+    }
+
+    function playPushSound() {
+      playTone(400, 'triangle', 0.08);
+      setTimeout(() => playTone(650, 'sine', 0.1), 60);
+      setTimeout(() => playTone(820, 'sine', 0.12), 120);
+    }
+
+    function playRegroupSound() {
+      playTone(440, 'sine', 0.09);
+      setTimeout(() => playTone(554, 'sine', 0.11), 60);
+      setTimeout(() => playTone(659, 'sine', 0.15), 120);
+    }
+
+    function hexToHsl(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+      const r = parseInt(hex.substring(0, 2), 16) / 255;
+      const g = parseInt(hex.substring(2, 4), 16) / 255;
+      const b = parseInt(hex.substring(4, 6), 16) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      if (max === min) { h = s = 0; }
+      else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return [h * 360, s * 100, l * 100];
+    }
+
+    function hslToHex(h, s, l) {
+      s /= 100; l /= 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+      else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+      else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+      else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+      else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+      else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+      const toHex = (n) => {
+        const hx = Math.round((n + m) * 255).toString(16);
+        return hx.length === 1 ? '0' + hx : hx;
+      };
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    function getPlacePalette(hex) {
+      const [h, s, l] = hexToHsl(hex);
+      const topColor   = hslToHex(h, Math.min(100, s * 0.95), Math.min(88, l + 22));
+      const frontColor = hex;
+      const rightColor = hslToHex(h, Math.min(100, s * 1.1), Math.max(12, l - 18));
+      const strokeColor= hslToHex(h, Math.min(100, s * 1.2), Math.max(8, l - 36));
+      return { top: topColor, front: frontColor, right: rightColor, stroke: strokeColor };
+    }
+
+    /* មុខងារបង្កើតថាសចំនួនរង្វង់មូល (Place Value Disks / Chips) */
+    function getDiskSVG(type, hex) {
+      const p = getPlacePalette(hex);
+      const numMap = { tt: '10000', th: '1000', h: '100', t: '10', o: '1' };
+      const textVal = formatDigit(numMap[type] || '1');
+
+      // កំណត់ទំហំអក្សរតាមចំនួនខ្ទង់
+      let fontSize = 22;
+      let letterSpacing = '0px';
+      if (type === 'tt') {
+        fontSize = 11.5;
+        letterSpacing = '-0.8px';
+      } else if (type === 'th') {
+        fontSize = 14;
+        letterSpacing = '-0.5px';
+      } else if (type === 'h') {
+        fontSize = 17;
+        letterSpacing = '-0.3px';
+      } else if (type === 't') {
+        fontSize = 20;
+      }
+
+      if (type === 'tt') {
+        // ថាសម៉ឺន (10000): រង្វង់ពណ៌ស្វាយ មានរង្វង់ចុចៗ និងជម្រៅ 3D
+        return `
+        <svg class="w-14 h-14 pointer-events-none select-none drop-shadow-md overflow-visible" viewBox="0 0 60 60" fill="none">
+          <circle cx="30" cy="32" r="26" fill="${p.right}" opacity="0.6"/>
+          <circle cx="30" cy="30" r="26" fill="${p.front}" stroke="${p.stroke}" stroke-width="2.5"/>
+          <circle cx="30" cy="30" r="22" fill="${p.top}" opacity="0.2"/>
+          <circle cx="30" cy="30" r="19" stroke="#ffffff" stroke-width="1.3" stroke-dasharray="2.5,2.5" opacity="0.75"/>
+          <text x="30" y="34.5" font-family="'Nunito', 'Kantumruy Pro', sans-serif" font-weight="900" font-size="${fontSize}" fill="#ffffff" text-anchor="middle" letter-spacing="${letterSpacing}" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.5))">${textVal}</text>
+        </svg>`;
+      }
+
+      // ថាសពាន់ (1000), រយ (100), ដប់ (10), រាយ (1): រង្វង់ពណ៌តាមខ្ទង់ ស៊ុមខ្មៅដិត និងលេខពណ៌ស
+      return `
+      <svg class="w-14 h-14 pointer-events-none select-none drop-shadow-md overflow-visible" viewBox="0 0 60 60" fill="none">
+        <circle cx="30" cy="32" r="26" fill="#000000" opacity="0.35"/>
+        <circle cx="30" cy="30" r="26" fill="${p.front}" stroke="#1e293b" stroke-width="3"/>
+        <circle cx="30" cy="30" r="23.5" stroke="#ffffff" stroke-width="1" opacity="0.25"/>
+        <text x="30" y="36.5" font-family="'Nunito', 'Kantumruy Pro', sans-serif" font-weight="900" font-size="${fontSize}" fill="#ffffff" text-anchor="middle" letter-spacing="${letterSpacing}" filter="drop-shadow(0 1.5px 2px rgba(0,0,0,0.6))">${textVal}</text>
+      </svg>`;
+    }
+
+    /* REPOSITION SYSTEM សម្រាប់ថាសចំនួន (រៀបជា ២ ជួរស្មើគ្នាក្នុងមួយខ្ទង់) */
+    function recalculateBlockPositions() {
+      const boardRect = document.getElementById('gridBoard').getBoundingClientRect();
+      const bW = boardRect.width || 800;
+
+      // ចម្ងាយផ្តេកនៃជួរនីមួយៗ
+      const colSpacingX = 64; 
+      const rowSpacingY = 64;
+      const topY = 40;
+
+      const startTtX = Math.max(15, bW * 0.02);
+      const startThX = Math.max(160, bW * 0.22);
+      const startHX  = Math.max(305, bW * 0.42);
+      const startTX  = Math.max(450, bW * 0.62);
+      const startOX  = Math.max(595, bW * 0.82);
+
+      const ttBlocks = blocks.filter(b => b.type === 'tt');
+      ttBlocks.forEach((b, i) => {
+        b.x = startTtX + (i % 2) * colSpacingX;
+        b.y = topY + Math.floor(i / 2) * rowSpacingY;
+      });
+
+      const thBlocks = blocks.filter(b => b.type === 'th');
+      thBlocks.forEach((b, i) => {
+        b.x = startThX + (i % 2) * colSpacingX;
+        b.y = topY + Math.floor(i / 2) * rowSpacingY;
+      });
+
+      const hBlocks = blocks.filter(b => b.type === 'h');
+      hBlocks.forEach((b, i) => {
+        b.x = startHX + (i % 2) * colSpacingX;
+        b.y = topY + Math.floor(i / 2) * rowSpacingY;
+      });
+
+      const tBlocks = blocks.filter(b => b.type === 't');
+      tBlocks.forEach((b, i) => {
+        b.x = startTX + (i % 2) * colSpacingX;
+        b.y = topY + Math.floor(i / 2) * rowSpacingY;
+      });
+
+      const oBlocks = blocks.filter(b => b.type === 'o');
+      oBlocks.forEach((b, i) => {
+        b.x = startOX + (i % 2) * colSpacingX;
+        b.y = topY + Math.floor(i / 2) * rowSpacingY;
+      });
+    }
+
+    document.getElementById('btnPushArrange').onclick = () => {
+      recalculateBlockPositions();
+      playPushSound();
+      renderBlocks();
+      saveState();
+    };
+
+    /* AUTO REGROUP */
+    function autoRegroupEverything() {
+      let changed = false;
+      const order = ['o', 't', 'h', 'th'];
+      const map = { o: 't', t: 'h', h: 'th', th: 'tt' };
+
+      order.forEach(type => {
+        let count = blocks.filter(b => b.type === type).length;
+        while (count >= 10) {
+          let removed = 0;
+          for (let i = blocks.length - 1; i >= 0 && removed < 10; i--) {
+            if (blocks[i].type === type) {
+              state.selectedIds.delete(blocks[i].id);
+              blocks.splice(i, 1);
+              removed++;
+            }
+          }
+          blocks.push({ id: blockIdCounter++, type: map[type], x: 0, y: 0 });
+          changed = true;
+          count = blocks.filter(b => b.type === type).length;
+        }
+      });
+
+      if (changed) {
+        playRegroupSound();
+        recalculateBlockPositions();
+        saveState();
+        updateAll();
+        updateSelectionUI();
+      } else {
+        playTone(320, 'sine', 0.1);
+      }
+    }
+
+    document.getElementById('btnAutoRegroupAll').onclick = autoRegroupEverything;
+
+    /* DECOMPOSE LOGIC */
+    function decomposeBlock(blockObj, shouldPushToColumn = false) {
+      if (!blockObj || blockObj.type === 'o') return;
+
+      const mapDown = { tt: 'th', th: 'h', h: 't', t: 'o' };
+      const childType = mapDown[blockObj.type];
+      if (!childType) return;
+
+      const idx = blocks.findIndex(b => b.id === blockObj.id);
+      if (idx === -1) return;
+
+      const originX = blockObj.x;
+      const originY = blockObj.y;
+
+      state.selectedIds.delete(blockObj.id);
+      blocks.splice(idx, 1);
+
+      const boardRect = document.getElementById('gridBoard').getBoundingClientRect();
+      const bW = boardRect.width || 800;
+
+      const columnTargets = {
+        th: Math.max(160, bW * 0.22),
+        h:  Math.max(305, bW * 0.42),
+        t:  Math.max(450, bW * 0.62),
+        o:  Math.max(595, bW * 0.82)
+      };
+
+      const targetBaseX = shouldPushToColumn ? (columnTargets[childType] || (originX + 130)) : originX;
+      const targetBaseY = shouldPushToColumn ? 40 : originY;
+
+      const createdIds = [];
+
+      for (let i = 0; i < 10; i++) {
+        // រៀបជា ២ ជួរស្មើគ្នាក្នុងចម្ងាយ 64px
+        const offsetX = (i % 2) * 64;
+        const offsetY = Math.floor(i / 2) * 64;
+
+        const newId = blockIdCounter++;
+        createdIds.push(newId);
+
+        blocks.push({
+          id: newId,
+          type: childType,
+          x: Math.max(10, targetBaseX + offsetX),
+          y: Math.max(10, targetBaseY + offsetY)
+        });
+      }
+
+      createdIds.forEach(id => state.selectedIds.add(id));
+
+      if (shouldPushToColumn) {
+        playPushSound();
+      } else {
+        playDecomposeSound();
+      }
+
+      saveState();
+      updateAll();
+      updateSelectionUI();
+    }
+
+    const btnDecomposeSelected = document.getElementById('btnDecomposeSelected');
+    const btnDecomposeAndPush = document.getElementById('btnDecomposeAndPush');
+
+    btnDecomposeSelected.onclick = () => {
+      const selected = blocks.filter(b => state.selectedIds.has(b.id) && b.type !== 'o');
+      if (selected.length > 0) decomposeBlock(selected[0], false);
+    };
+
+    btnDecomposeAndPush.onclick = () => {
+      const selected = blocks.filter(b => state.selectedIds.has(b.id) && b.type !== 'o');
+      if (selected.length > 0) decomposeBlock(selected[0], true);
+    };
+
+    const btnDeselectAllHeader = document.getElementById('btnDeselectAllHeader');
+    const btnDeselectFloating = document.getElementById('btnDeselectFloating');
+    btnDeselectAllHeader.onclick = clearAllSelection;
+    btnDeselectFloating.onclick = clearAllSelection;
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') clearAllSelection();
+    });
+
+    function handleBlockDoubleAction(blockObj) {
+      const selectedOfThisType = blocks.filter(b => state.selectedIds.has(b.id) && b.type === blockObj.type);
+
+      if (selectedOfThisType.length >= 10) {
+        const mapUp = { o: 't', t: 'h', h: 'th', th: 'tt' };
+        if (mapUp[blockObj.type]) {
+          let removed = 0;
+          for (let i = blocks.length - 1; i >= 0 && removed < 10; i--) {
+            if (blocks[i].type === blockObj.type && state.selectedIds.has(blocks[i].id)) {
+              state.selectedIds.delete(blocks[i].id);
+              blocks.splice(i, 1);
+              removed++;
+            }
+          }
+          blocks.push({ id: blockIdCounter++, type: mapUp[blockObj.type], x: blockObj.x, y: blockObj.y });
+          playRegroupSound();
+          saveState();
+          updateAll();
+          updateSelectionUI();
+          return;
+        }
+      }
+      decomposeBlock(blockObj, false);
+    }
+
+    /* DRAGGABLE BLOCKS */
+    const layerBlocks = document.getElementById('layerBlocks');
+
+    function attachBlockDraggable(el, blockObj) {
+      let isDragging = false;
+      let startClientX = 0, startClientY = 0;
+      let initialPositions = new Map();
+      let lastTapTime = 0;
+
+      const onPointerDown = (e) => {
+        if (state.toolMode === 'pen' || state.toolMode === 'pan') return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        const now = Date.now();
+        if (now - lastTapTime < 320) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleBlockDoubleAction(blockObj);
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+
+        e.stopPropagation();
+
+        const isMulti = e.shiftKey || e.ctrlKey || state.isMultiSelect;
+        if (!state.selectedIds.has(blockObj.id)) {
+          if (!isMulti) {
+            state.selectedIds.clear();
+            state.selectedDrawingIds.clear();
+          }
+          state.selectedIds.add(blockObj.id);
+        } else if (isMulti) {
+          state.selectedIds.delete(blockObj.id);
+          updateSelectionUI();
+          return;
+        }
+        updateSelectionUI();
+
+        isDragging = true;
+        el.classList.add('dragging');
+
+        startClientX = e.clientX;
+        startClientY = e.clientY;
+
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch(err) {}
+
+        initialPositions.clear();
+        state.selectedIds.forEach(id => {
+          const blk = blocks.find(b => b.id === id);
+          if (blk) {
+            initialPositions.set(id, { x: blk.x, y: blk.y });
+            const itemEl = layerBlocks.querySelector(`[data-block-id="${id}"]`);
+            if (itemEl) itemEl.classList.add('dragging');
+          }
+        });
+
+        playTone(450, 'sine', 0.05);
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const dx = (e.clientX - startClientX) / state.zoomLevel;
+        const dy = (e.clientY - startClientY) / state.zoomLevel;
+        const bRect = document.getElementById('gridBoard').getBoundingClientRect();
+
+        state.selectedIds.forEach(id => {
+          const init = initialPositions.get(id);
+          const blk = blocks.find(b => b.id === id);
+          if (init && blk) {
+            blk.x = Math.max(-50, Math.min(bRect.width + 100, init.x + dx));
+            blk.y = Math.max(-50, Math.min(bRect.height + 100, init.y + dy));
+            const itemEl = layerBlocks.querySelector(`[data-block-id="${id}"]`);
+            if (itemEl) {
+              itemEl.style.left = `${blk.x}px`;
+              itemEl.style.top = `${blk.y}px`;
+            }
+          }
+        });
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch(err) {}
+
+        state.selectedIds.forEach(id => {
+          const itemEl = layerBlocks.querySelector(`[data-block-id="${id}"]`);
+          if (itemEl) itemEl.classList.remove('dragging');
+        });
+
+        saveState();
+      };
+
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('pointermove', onPointerMove);
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function renderBlocks() {
+      if (!state.showBlocks) {
+        layerBlocks.innerHTML = '';
+        return;
+      }
+
+      const existingElements = Array.from(layerBlocks.querySelectorAll('[data-block-id]'));
+      const activeIds = new Set(blocks.map(b => String(b.id)));
+
+      existingElements.forEach(el => {
+        if (!activeIds.has(el.dataset.blockId)) {
+          el.remove();
+        }
+      });
+
+      blocks.forEach(b => {
+        let el = layerBlocks.querySelector(`[data-block-id="${b.id}"]`);
+        const isSel = state.selectedIds.has(b.id);
+
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'draggable-item anim-spawn flex flex-col items-center';
+          el.dataset.blockId = b.id;
+
+          const svgContent = getDiskSVG(b.type, placeColors[b.type]);
+          el.innerHTML = `<div class="block-svg-container">${svgContent}</div>`;
+
+          attachBlockDraggable(el, b);
+          layerBlocks.appendChild(el);
+        }
+
+        el.style.left = `${b.x}px`;
+        el.style.top = `${b.y}px`;
+
+        if (isSel) el.classList.add('block-selected');
+        else el.classList.remove('block-selected');
+      });
+
+      updateSelectionUI();
+    }
+
+    function forceRedrawAllBlockSVGs() {
+      layerBlocks.querySelectorAll('[data-block-id]').forEach(el => {
+        const id = parseInt(el.dataset.blockId, 10);
+        const b = blocks.find(item => item.id === id);
+        if (!b) return;
+
+        const svgContent = getDiskSVG(b.type, placeColors[b.type]);
+        const container = el.querySelector('.block-svg-container');
+        if (container) container.innerHTML = svgContent;
+      });
+    }
+
+    function updateSelectionUI() {
+      layerBlocks.querySelectorAll('.draggable-item').forEach(el => {
+        const id = parseInt(el.dataset.blockId, 10);
+        if (state.selectedIds.has(id)) el.classList.add('block-selected');
+        else el.classList.remove('block-selected');
+      });
+
+      const layerDrawings = document.getElementById('layerDrawings');
+      layerDrawings.querySelectorAll('.draggable-drawing').forEach(el => {
+        const id = parseInt(el.dataset.drawId, 10);
+        if (state.selectedDrawingIds.has(id)) el.classList.add('drawing-selected');
+        else el.classList.remove('drawing-selected');
+      });
+
+      const totalSelected = state.selectedIds.size + state.selectedDrawingIds.size;
+      const hasSelection = totalSelected > 0;
+
+      const delBtn = document.getElementById('btnDeleteSelected');
+      if (delBtn) delBtn.disabled = !hasSelection;
+
+      const selectedBlocks = blocks.filter(b => state.selectedIds.has(b.id));
+      const canDecompose = selectedBlocks.some(b => b.type !== 'o');
+
+      btnDecomposeSelected.classList.toggle('hidden', !canDecompose);
+      btnDecomposeSelected.classList.toggle('flex', canDecompose);
+
+      btnDecomposeAndPush.classList.toggle('hidden', !canDecompose);
+      btnDecomposeAndPush.classList.toggle('flex', canDecompose);
+
+      btnDeselectAllHeader.classList.toggle('hidden', !hasSelection);
+      btnDeselectAllHeader.classList.toggle('flex', hasSelection);
+
+      const floatingSelectBar = document.getElementById('floatingSelectBar');
+      const selectedCountText = document.getElementById('selectedCountText');
+      if (hasSelection) {
+        floatingSelectBar.classList.remove('hidden');
+        selectedCountText.textContent = `បានរើស ${formatDigit(totalSelected)}`;
+      } else {
+        floatingSelectBar.classList.add('hidden');
+      }
+    }
+
+    /* DRAGGABLE DRAWINGS & WHITEBOARD SYSTEM */
+    const layerDrawings = document.getElementById('layerDrawings');
+
+    function renderDrawings() {
+      layerDrawings.innerHTML = '';
+      drawings.forEach(d => {
+        const wrap = document.createElement('div');
+        const isSel = state.selectedDrawingIds.has(d.id);
+        wrap.className = `draggable-drawing absolute select-none ${isSel ? 'drawing-selected' : ''}`;
+        wrap.dataset.drawId = d.id;
+
+        const minX = d.bbox.minX - 8;
+        const minY = d.bbox.minY - 8;
+        const w = (d.bbox.maxX - d.bbox.minX) + 16;
+        const h = (d.bbox.maxY - d.bbox.minY) + 16;
+
+        wrap.style.left = `${minX}px`;
+        wrap.style.top = `${minY}px`;
+        wrap.style.width = `${w}px`;
+        wrap.style.height = `${h}px`;
+
+        let pathData = '';
+        d.points.forEach((pt, idx) => {
+          const relX = pt.x - minX;
+          const relY = pt.y - minY;
+          if (idx === 0) pathData += `M ${relX} ${relY} `;
+          else pathData += `L ${relX} ${relY} `;
+        });
+
+        wrap.innerHTML = `
+          <svg width="${w}" height="${h}" class="pointer-events-none overflow-visible" fill="none">
+            <path d="${pathData}" stroke="${d.color}" stroke-width="${d.width}" stroke-linecap="round" stroke-linejoin="round" opacity="${d.opacity}"/>
+          </svg>
+        `;
+
+        attachDrawingDraggable(wrap, d);
+        layerDrawings.appendChild(wrap);
+      });
+      updateSelectionUI();
+    }
+
+    function attachDrawingDraggable(el, drawObj) {
+      let isDragging = false;
+      let startClientX = 0, startClientY = 0;
+      let initialPoints = [];
+
+      const onPointerDown = (e) => {
+        if (state.toolMode === 'pen') return;
+        if (state.toolMode === 'pan') return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        e.stopPropagation();
+
+        const isMulti = e.shiftKey || e.ctrlKey || state.isMultiSelect;
+        if (!state.selectedDrawingIds.has(drawObj.id)) {
+          if (!isMulti) {
+            state.selectedIds.clear();
+            state.selectedDrawingIds.clear();
+          }
+          state.selectedDrawingIds.add(drawObj.id);
+        } else if (isMulti) {
+          state.selectedDrawingIds.delete(drawObj.id);
+          updateSelectionUI();
+          return;
+        }
+        updateSelectionUI();
+
+        isDragging = true;
+        startClientX = e.clientX;
+        startClientY = e.clientY;
+
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch(err) {}
+
+        initialPoints = drawObj.points.map(p => ({ x: p.x, y: p.y }));
+        playTone(520, 'sine', 0.04);
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const dx = (e.clientX - startClientX) / state.zoomLevel;
+        const dy = (e.clientY - startClientY) / state.zoomLevel;
+
+        drawObj.points = initialPoints.map(p => ({ x: p.x + dx, y: p.y + dy }));
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        drawObj.points.forEach(p => {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        });
+        drawObj.bbox = { minX, minY, maxX, maxY };
+
+        const w = (maxX - minX) + 16;
+        const h = (maxY - minY) + 16;
+        el.style.left = `${minX - 8}px`;
+        el.style.top = `${minY - 8}px`;
+        el.style.width = `${w}px`;
+        el.style.height = `${h}px`;
+
+        let pathData = '';
+        drawObj.points.forEach((pt, idx) => {
+          const relX = pt.x - (minX - 8);
+          const relY = pt.y - (minY - 8);
+          if (idx === 0) pathData += `M ${relX} ${relY} `;
+          else pathData += `L ${relX} ${relY} `;
+        });
+        const pathEl = el.querySelector('path');
+        if (pathEl) pathEl.setAttribute('d', pathData);
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch(err) {}
+        saveState();
+      };
+
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('pointermove', onPointerMove);
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function checkEraserCollision(x, y) {
+      const radius = Math.max(16, state.brushSize * 2);
+      const toRemove = [];
+      drawings.forEach(d => {
+        if (x >= d.bbox.minX - radius && x <= d.bbox.maxX + radius &&
+            y >= d.bbox.minY - radius && y <= d.bbox.maxY + radius) {
+          const hit = d.points.some(p => Math.hypot(p.x - x, p.y - y) <= radius);
+          if (hit) toRemove.push(d.id);
+        }
+      });
+      if (toRemove.length > 0) {
+        drawings = drawings.filter(d => !toRemove.includes(d.id));
+        toRemove.forEach(id => state.selectedDrawingIds.delete(id));
+        renderDrawings();
+        playTone(300, 'sawtooth', 0.05);
+      }
+    }
+
+    /* CANVAS & MARQUEE INTERACTION */
+    const gridBoard = document.getElementById('gridBoard');
+    const marquee = document.getElementById('selectionMarquee');
+    const activeDrawCanvas = document.getElementById('activeDrawCanvas');
+    const activeDrawCtx = activeDrawCanvas.getContext('2d');
+    let isMarquee = false;
+    let mStartX = 0, mStartY = 0;
+    let panStartX = 0, panStartY = 0;
+    let initialPanX = 0, initialPanY = 0;
+
+    function resizeCanvas() {
+      const rect = gridBoard.getBoundingClientRect();
+      activeDrawCanvas.width = rect.width;
+      activeDrawCanvas.height = rect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 100);
+
+    gridBoard.addEventListener('pointerdown', (e) => {
+      if (state.toolMode !== 'pen') {
+        if (e.target.closest('.draggable-item') || 
+            e.target.closest('#layerCards') || 
+            e.target.closest('.draggable-drawing') || 
+            e.target.closest('#floatingSelectBar') ||
+            e.target.closest('#btnToggleBottomBar') || 
+            e.target.closest('#penOptionsBar') ||
+            state.showAbacus) return;
+      } else {
+        if (e.target.closest('#floatingSelectBar') ||
+            e.target.closest('#btnToggleBottomBar') || 
+            e.target.closest('#penOptionsBar')) return;
+      }
+
+      const rect = gridBoard.getBoundingClientRect();
+
+      if (state.toolMode === 'pan') {
+        state.isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        initialPanX = state.panX;
+        initialPanY = state.panY;
+        gridBoard.style.cursor = 'grabbing';
+        return;
+      }
+
+      const clickX = (e.clientX - rect.left - state.panX) / state.zoomLevel;
+      const clickY = (e.clientY - rect.top - state.panY) / state.zoomLevel;
+
+      if (state.toolMode === 'pen') {
+        state.isDrawing = true;
+
+        if (state.brushType === 'eraser') {
+          checkEraserCollision(clickX, clickY);
+          return;
+        }
+
+        currentStrokePoints = [{ x: clickX, y: clickY }];
+
+        activeDrawCtx.clearRect(0, 0, activeDrawCanvas.width, activeDrawCanvas.height);
+        activeDrawCtx.lineCap = 'round';
+        activeDrawCtx.lineJoin = 'round';
+
+        let effectiveWidth = state.brushSize;
+        if (state.brushType === 'pencil') {
+          activeDrawCtx.strokeStyle = state.penColor;
+          activeDrawCtx.lineWidth = effectiveWidth;
+          activeDrawCtx.globalAlpha = 0.85;
+        } else if (state.brushType === 'highlighter') {
+          activeDrawCtx.strokeStyle = state.penColor;
+          activeDrawCtx.lineWidth = effectiveWidth * 2.8;
+          activeDrawCtx.globalAlpha = 0.45;
+        } else {
+          activeDrawCtx.strokeStyle = state.penColor;
+          activeDrawCtx.lineWidth = effectiveWidth;
+          activeDrawCtx.globalAlpha = 1.0;
+        }
+
+        activeDrawCtx.beginPath();
+        activeDrawCtx.moveTo(clickX, clickY);
+        return;
+      }
+
+      mStartX = clickX;
+      mStartY = clickY;
+
+      if (!e.shiftKey && !e.ctrlKey && !state.isMultiSelect) {
+        clearAllSelection();
+      }
+
+      isMarquee = true;
+      marquee.style.left = `${mStartX}px`;
+      marquee.style.top = `${mStartY}px`;
+      marquee.style.width = '0px';
+      marquee.style.height = '0px';
+      marquee.classList.remove('hidden');
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (state.toolMode === 'pan' && state.isPanning) {
+        const dx = e.clientX - panStartX;
+        const dy = e.clientY - panStartY;
+        state.panX = initialPanX + dx;
+        state.panY = initialPanY + dy;
+        applyZoomAndPan();
+        return;
+      }
+
+      const rect = gridBoard.getBoundingClientRect();
+      const curX = (e.clientX - rect.left - state.panX) / state.zoomLevel;
+      const curY = (e.clientY - rect.top - state.panY) / state.zoomLevel;
+
+      if (state.toolMode === 'pen' && state.isDrawing) {
+        if (state.brushType === 'eraser') {
+          checkEraserCollision(curX, curY);
+          return;
+        }
+
+        currentStrokePoints.push({ x: curX, y: curY });
+        activeDrawCtx.lineTo(curX, curY);
+        activeDrawCtx.stroke();
+        return;
+      }
+
+      if (!isMarquee) return;
+      const left = Math.min(mStartX, curX);
+      const top = Math.min(mStartY, curY);
+      const width = Math.abs(curX - mStartX);
+      const height = Math.abs(curY - mStartY);
+
+      marquee.style.left = `${left}px`;
+      marquee.style.top = `${top}px`;
+      marquee.style.width = `${width}px`;
+      marquee.style.height = `${height}px`;
+
+      blocks.forEach(b => {
+        if (b.x + 30 >= left && b.x <= left + width && b.y + 30 >= top && b.y <= top + height) {
+          state.selectedIds.add(b.id);
+        }
+      });
+
+      drawings.forEach(d => {
+        if (d.bbox.maxX >= left && d.bbox.minX <= left + width && d.bbox.maxY >= top && d.bbox.minY <= top + height) {
+          state.selectedDrawingIds.add(d.id);
+        }
+      });
+
+      updateSelectionUI();
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (state.isPanning) {
+        state.isPanning = false;
+        if (state.toolMode === 'pan') gridBoard.style.cursor = 'grab';
+      }
+
+      if (state.isDrawing) {
+        state.isDrawing = false;
+        activeDrawCtx.clearRect(0, 0, activeDrawCanvas.width, activeDrawCanvas.height);
+
+        if (state.brushType !== 'eraser' && currentStrokePoints.length > 1) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          currentStrokePoints.forEach(p => {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+          });
+
+          const strokeWidth = state.brushType === 'highlighter' ? state.brushSize * 2.8 : state.brushSize;
+          const strokeOpacity = state.brushType === 'pencil' ? 0.85 : state.brushType === 'highlighter' ? 0.45 : 1.0;
+
+          drawings.push({
+            id: drawIdCounter++,
+            points: currentStrokePoints,
+            color: state.penColor,
+            width: strokeWidth,
+            opacity: strokeOpacity,
+            bbox: { minX, minY, maxX, maxY }
+          });
+
+          renderDrawings();
+          saveState();
+        }
+        currentStrokePoints = [];
+      }
+
+      if (isMarquee) {
+        isMarquee = false;
+        marquee.classList.add('hidden');
+      }
+    });
+
+    /* ARROW CARDS LOGIC */
+    const layerCards = document.getElementById('layerCards');
+    const CARD_W = 76;
+    const CARD_H = 82;
+    const TAIL_W = 48;
+
+    function initCardCoords(forceStack = false) {
+      const boardRect = document.getElementById('gridBoard').getBoundingClientRect();
+      const bW = boardRect.width || 800;
+      const bH = boardRect.height || 600;
+
+      const activePlaces = getActivePlaces();
+      const totalW = activePlaces.length * CARD_W + TAIL_W;
+      const stackStartX = Math.max(15, (bW - totalW) / 2);
+      const stackY = Math.max(120, bH - 120);
+
+      if (state.isStacked || forceStack) {
+        activePlaces.forEach((type, idx) => {
+          cardCoords[type] = { x: stackStartX + idx * CARD_W, y: stackY };
+        });
+      } else {
+        const centerY = Math.max(140, bH - 130);
+        cardCoords.tt = { x: Math.max(15, bW * 0.05), y: centerY - 90 };
+        cardCoords.th = { x: Math.max(15, bW * 0.38), y: centerY - 90 };
+        cardCoords.h  = { x: Math.max(15, bW * 0.68), y: centerY - 90 };
+        cardCoords.t  = { x: Math.max(15, bW * 0.20), y: centerY + 10 };
+        cardCoords.o  = { x: Math.max(15, bW * 0.58), y: centerY + 10 };
+      }
+    }
+
+    function renderArrowCards() {
+      layerCards.innerHTML = '';
+      if (!state.showCards) return;
+
+      const activePlaces = getActivePlaces();
+
+      if (state.isStacked || activePlaces.some(p => cardCoords[p].x === null)) {
+        initCardCoords(state.isStacked);
+      }
+
+      const c = getCounts();
+      const values = { tt: c.tt, th: c.th, h: c.h, t: c.t, o: c.o };
+
+      activePlaces.forEach((type, idx) => {
+        const cardEl = document.createElement('div');
+        cardEl.className = 'draggable-item';
+        cardEl.style.zIndex = '35';
+
+        const hex = placeColors[type];
+        const p = getPlacePalette(hex);
+        const colorBg = p.front;
+        const tailBg = p.right;
+        const bevelLine = p.stroke;
+        const placeDigits = (type === 'tt') ? 5 : (type === 'th') ? 4 : (type === 'h') ? 3 : (type === 't') ? 2 : 1;
+
+        const digitVal = values[type] % 10;
+        const primaryNum = formatDigit(values[type]);
+        const zeroNum = formatDigit('0');
+
+        if (state.isStacked) {
+          const isRightMost = (idx === activePlaces.length - 1);
+          const cardWidth = isRightMost ? (CARD_W + TAIL_W) : CARD_W;
+
+          if (isRightMost) {
+            cardEl.innerHTML = `
+              <svg width="${cardWidth}" height="${CARD_H}" viewBox="0 0 ${cardWidth} ${CARD_H}" fill="none" class="drop-shadow-md select-none pointer-events-none overflow-visible">
+                <polygon points="${CARD_W},2 ${cardWidth - 2},${CARD_H - 2} ${CARD_W},${CARD_H - 2}" fill="${tailBg}"/>
+                <rect x="2" y="2" width="${CARD_W - 2}" height="${CARD_H - 4}" fill="${colorBg}" stroke="#000000" stroke-width="3.5"/>
+                <polygon points="${CARD_W},2 ${cardWidth - 2},${CARD_H - 2} ${CARD_W},${CARD_H - 2}" fill="none" stroke="#000000" stroke-width="3.5" stroke-linejoin="round"/>
+                <line x1="${CARD_W}" y1="4" x2="${cardWidth - 4}" y2="${CARD_H - 2}" stroke="${bevelLine}" stroke-width="2.5" stroke-linecap="round"/>
+                <text x="${CARD_W * 0.5}" y="58" font-family="'Lora', Georgia, serif" font-weight="700" font-size="48" fill="#000000" text-anchor="middle">${formatDigit(digitVal)}</text>
+              </svg>
+            `;
+          } else {
+            cardEl.innerHTML = `
+              <svg width="${cardWidth}" height="${CARD_H}" viewBox="0 0 ${cardWidth} ${CARD_H}" fill="none" class="drop-shadow-md select-none pointer-events-none overflow-visible">
+                <rect x="2" y="2" width="${CARD_W - 2}" height="${CARD_H - 4}" fill="${colorBg}" stroke="#000000" stroke-width="3.5"/>
+                <text x="${CARD_W * 0.5}" y="58" font-family="'Lora', Georgia, serif" font-weight="700" font-size="48" fill="#000000" text-anchor="middle">${formatDigit(digitVal)}</text>
+              </svg>
+            `;
+          }
+        } else {
+          const fullW = placeDigits * CARD_W + TAIL_W;
+          const bodyW = placeDigits * CARD_W;
+
+          let extraZeros = '';
+          for (let z = 1; z < placeDigits; z++) {
+            extraZeros += `<text x="${CARD_W * (z + 0.5)}" y="58" font-family="'Lora', Georgia, serif" font-weight="700" font-size="48" fill="#000000" text-anchor="middle">${zeroNum}</text>`;
+          }
+
+          cardEl.innerHTML = `
+            <svg width="${fullW}" height="${CARD_H}" viewBox="0 0 ${fullW} ${CARD_H}" fill="none" class="drop-shadow-lg select-none pointer-events-none overflow-visible">
+              <polygon points="${bodyW},2 ${fullW - 2},${CARD_H - 2} ${bodyW},${CARD_H - 2}" fill="${tailBg}"/>
+              <rect x="2" y="2" width="${bodyW - 2}" height="${CARD_H - 4}" fill="${colorBg}" stroke="#000000" stroke-width="3.5"/>
+              <polygon points="${bodyW},2 ${fullW - 2},${CARD_H - 2} ${bodyW},${CARD_H - 2}" fill="none" stroke="#000000" stroke-width="3.5" stroke-linejoin="round"/>
+              <line x1="${bodyW}" y1="4" x2="${fullW - 4}" y2="${CARD_H - 2}" stroke="${bevelLine}" stroke-width="2.5" stroke-linecap="round"/>
+              <text x="${CARD_W * 0.5}" y="58" font-family="'Lora', Georgia, serif" font-weight="700" font-size="48" fill="#000000" text-anchor="middle">${primaryNum}</text>
+              ${extraZeros}
+            </svg>
+          `;
+        }
+
+        cardEl.style.left = `${cardCoords[type].x}px`;
+        cardEl.style.top = `${cardCoords[type].y}px`;
+
+        attachCardInteraction(cardEl, type);
+        layerCards.appendChild(cardEl);
+      });
+    }
+
+    function attachCardInteraction(el, type) {
+      let isDragging = false;
+      let startX, startY, initX, initY;
+      let hasMoved = false;
+
+      const onPointerDown = (e) => {
+        if (state.toolMode === 'pen' || state.toolMode === 'pan') return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        e.stopPropagation();
+        isDragging = true;
+        hasMoved = false;
+        el.style.zIndex = '99';
+        el.classList.add('dragging');
+
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch(err) {}
+
+        startX = e.clientX;
+        startY = e.clientY;
+        initX = parseFloat(el.style.left) || 0;
+        initY = parseFloat(el.style.top) || 0;
+
+        playTone(600, 'triangle');
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const dx = (e.clientX - startX) / state.zoomLevel;
+        const dy = (e.clientY - startY) / state.zoomLevel;
+
+        if (Math.hypot(dx, dy) > 6) {
+          hasMoved = true;
+          if (state.isStacked) state.isStacked = false;
+        }
+
+        const nx = initX + dx;
+        const ny = initY + dy;
+        el.style.left = `${nx}px`;
+        el.style.top = `${ny}px`;
+        cardCoords[type].x = nx;
+        cardCoords[type].y = ny;
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.style.zIndex = '35';
+        el.classList.remove('dragging');
+
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch(err) {}
+
+        if (!hasMoved) {
+          state.isStacked = !state.isStacked;
+          initCardCoords();
+          playTone(state.isStacked ? 780 : 520, 'sine');
+          renderArrowCards();
+          return;
+        }
+
+        checkCardsSnap();
+      };
+
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('pointermove', onPointerMove);
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function checkCardsSnap() {
+      const active = getActivePlaces();
+      let snap = true;
+      for (let i = 0; i < active.length - 1; i++) {
+        const curr = active[i];
+        const next = active[i + 1];
+        if (Math.hypot(cardCoords[next].x - (cardCoords[curr].x + CARD_W), cardCoords[next].y - cardCoords[curr].y) > 70) {
+          snap = false;
+          break;
+        }
+      }
+
+      if (snap) {
+        state.isStacked = true;
+        initCardCoords(true);
+        playTone(850, 'sine');
+        renderArrowCards();
+      }
+    }
+
+    /* PALETTE & UI SETUP */
+    function applyUIColors() {
+      const conf = [
+        { id: 'labelTt', box: 'boxTt', hex: placeColors.tt },
+        { id: 'labelTh', box: 'boxTh', hex: placeColors.th },
+        { id: 'labelH',  box: 'boxH',  hex: placeColors.h },
+        { id: 'labelT',  box: 'boxT',  hex: placeColors.t },
+        { id: 'labelO',  box: 'boxO',  hex: placeColors.o }
+      ];
+
+      conf.forEach(item => {
+        const lbl = document.getElementById(item.id);
+        const bx  = document.getElementById(item.box);
+        if (lbl) lbl.style.color = item.hex;
+        if (bx) {
+          bx.style.borderColor = item.hex;
+          bx.style.backgroundColor = `${item.hex}18`;
+        }
+      });
+
+      const abTt = document.getElementById('abacusHeaderTt');
+      const abTh = document.getElementById('abacusHeaderTh');
+      const abH  = document.getElementById('abacusHeaderH');
+      const abT  = document.getElementById('abacusHeaderT');
+      const abO  = document.getElementById('abacusHeaderO');
+      if (abTt) abTt.style.color = placeColors.tt;
+      if (abTh) abTh.style.color = placeColors.th;
+      if (abH)  abH.style.color = placeColors.h;
+      if (abT)  abT.style.color = placeColors.t;
+      if (abO)  abO.style.color = placeColors.o;
+
+      const iconO = document.getElementById('iconBlockO');
+      const iconT = document.getElementById('iconBlockT');
+      const iconH = document.getElementById('iconBlockH');
+      const iconTh = document.getElementById('iconBlockTh');
+      if (iconO) iconO.style.backgroundColor = placeColors.o;
+      if (iconT) iconT.style.backgroundColor = placeColors.t;
+      if (iconH) iconH.style.backgroundColor = placeColors.h;
+      if (iconTh) iconTh.style.backgroundColor = placeColors.th;
+
+      const iconCardPoly = document.getElementById('iconCardPoly');
+      if (iconCardPoly) {
+        iconCardPoly.setAttribute('fill', placeColors.tt);
+        iconCardPoly.setAttribute('stroke', placeColors.tt);
+      }
+
+      const pTt = document.getElementById('pickerTt');
+      const pTh = document.getElementById('pickerTh');
+      const pH  = document.getElementById('pickerH');
+      const pT  = document.getElementById('pickerT');
+      const pO  = document.getElementById('pickerO');
+      if (pTt) pTt.value = placeColors.tt;
+      if (pTh) pTh.value = placeColors.th;
+      if (pH)  pH.value  = placeColors.h;
+      if (pT)  pT.value  = placeColors.t;
+      if (pO)  pO.value  = placeColors.o;
+
+      const prevTt = document.getElementById('previewTt');
+      const prevTh = document.getElementById('previewTh');
+      const prevH  = document.getElementById('previewH');
+      const prevT  = document.getElementById('previewT');
+      const prevO  = document.getElementById('previewO');
+      if (prevTt) prevTt.style.backgroundColor = placeColors.tt;
+      if (prevTh) prevTh.style.backgroundColor = placeColors.th;
+      if (prevH)  prevH.style.backgroundColor  = placeColors.h;
+      if (prevT)  prevT.style.backgroundColor  = placeColors.t;
+      if (prevO)  prevO.style.backgroundColor  = placeColors.o;
+    }
+
+    function renderAbacus() {
+      const c = getCounts();
+      const fillCol = (id, count, hex) => {
+        const col = document.getElementById(id);
+        if (!col) return;
+        col.innerHTML = '';
+        for (let i = 0; i < Math.min(10, count); i++) {
+          const bead = document.createElement('div');
+          bead.className = 'w-8 sm:w-9 h-3.5 sm:h-4 rounded-full shadow-md border border-black/40';
+          bead.style.backgroundColor = hex;
+          col.appendChild(bead);
+        }
+      };
+      fillCol('abacusTt', c.tt, placeColors.tt);
+      fillCol('abacusTh', c.th, placeColors.th);
+      fillCol('abacusH', c.h, placeColors.h);
+      fillCol('abacusT', c.t, placeColors.t);
+      fillCol('abacusO', c.o, placeColors.o);
+    }
+
+    const cartoonTheme = [
+      '#84cc16', '#10b981', '#f97316', '#ec4899', '#3b82f6',
+      '#a855f7', '#06b6d4', '#eab308', '#ef4444', '#14b8a6'
+    ];
+
+    function renderCartoonDigits() {
+      const container = document.getElementById('cartoonContainer');
+      container.innerHTML = '';
+      for (let i = 0; i <= 9; i++) {
+        const color = cartoonTheme[i % cartoonTheme.length];
+        const numText = formatDigit(i);
+        const btn = document.createElement('button');
+        btn.className = 'cartoon-char w-11 sm:w-13 h-13 sm:h-15 flex items-center justify-center relative cursor-pointer focus:outline-none shrink-0';
+        btn.title = `លេខ ${numText}`;
+        btn.innerHTML = `
+          <svg class="w-full h-full" viewBox="0 0 60 70">
+            <text x="30" y="52" font-family="'Nunito', 'Kantumruy Pro', cursive, sans-serif" font-weight="900" font-size="52" fill="${color}" stroke="#0f172a" stroke-width="4" text-anchor="middle" paint-order="stroke fill">${numText}</text>
+            <circle cx="23" cy="20" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>
+            <circle cx="24.5" cy="20" r="2.2" fill="#0f172a"/>
+            <circle cx="37" cy="20" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>
+            <circle cx="38.5" cy="20" r="2.2" fill="#0f172a"/>
+            <path d="M26 31 Q30 36 34 31" stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+        `;
+        btn.onclick = () => {
+          blocks = blocks.filter(b => b.type !== 'o');
+          for (let u = 0; u < i; u++) {
+            blocks.push({ id: blockIdCounter++, type: 'o', x: 0, y: 0 });
+          }
+          playTone(400 + i * 45, 'triangle');
+          recalculateBlockPositions();
+          saveState();
+          updateAll();
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    function updateAll() {
+      applyUIColors();
+      renderBlocks();
+      renderArrowCards();
+      renderAbacus();
+    }
+
+    /* STEPPERS */
+    document.querySelectorAll('.btn-step').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const place = btn.dataset.place;
+        const delta = parseInt(btn.dataset.delta, 10);
+
+        if (delta > 0) {
+          blocks.push({ id: blockIdCounter++, type: place, x: 0, y: 0 });
+          playTone(place === 'tt' ? 740 : 720, 'sine');
+        } else {
+          const lastIdx = blocks.map(b => b.type).lastIndexOf(place);
+          if (lastIdx !== -1) {
+            state.selectedIds.delete(blocks[lastIdx].id);
+            blocks.splice(lastIdx, 1);
+            playTone(place === 'tt' ? 340 : 360, 'sine');
+          }
+        }
+
+        recalculateBlockPositions();
+        if (state.isStacked) initCardCoords(true);
+        saveState();
+        updateAll();
+      });
+    });
+
+    const btnToggleLang = document.getElementById('btnToggleLang');
+    const txtNumSystem = document.getElementById('txtNumSystem');
+    btnToggleLang.onclick = () => {
+      state.isKhmer = !state.isKhmer;
+      txtNumSystem.textContent = state.isKhmer ? '០' : '0';
+      playTone(800, 'sine');
+      renderCartoonDigits();
+      forceRedrawAllBlockSVGs();
+      renderArrowCards();
+    };
+
+    const btnMultiSelect = document.getElementById('btnMultiSelect');
+    btnMultiSelect.onclick = () => {
+      state.isMultiSelect = !state.isMultiSelect;
+      btnMultiSelect.classList.toggle('bg-blue-600', state.isMultiSelect);
+      btnMultiSelect.classList.toggle('text-white', state.isMultiSelect);
+      btnMultiSelect.classList.toggle('border-blue-600', state.isMultiSelect);
+      playTone(550, 'sine', 0.05);
+    };
+
+    document.getElementById('btnSelectAll').onclick = () => {
+      blocks.forEach(b => state.selectedIds.add(b.id));
+      drawings.forEach(d => state.selectedDrawingIds.add(d.id));
+      updateSelectionUI();
+      playTone(600, 'sine', 0.06);
+    };
+
+    document.getElementById('btnDeleteSelected').onclick = () => {
+      blocks = blocks.filter(b => !state.selectedIds.has(b.id));
+      drawings = drawings.filter(d => !state.selectedDrawingIds.has(d.id));
+      clearAllSelection();
+      playTone(280, 'sawtooth', 0.08);
+      renderDrawings();
+      saveState();
+      updateAll();
+    };
+
+    document.getElementById('btnToolStack').onclick = () => {
+      state.isStacked = !state.isStacked;
+      initCardCoords(state.isStacked);
+      playTone(state.isStacked ? 780 : 520, 'triangle');
+      renderArrowCards();
+    };
+
+    document.getElementById('btnToolZero').onclick = () => {
+      blocks = [];
+      drawings = [];
+      clearAllSelection();
+      state.isStacked = true;
+      initCardCoords(true);
+      playTone(280, 'sine');
+      renderDrawings();
+      saveState();
+      updateAll();
+    };
+
+    document.getElementById('btnResetCanvas').onclick = () => {
+      blocks = [];
+      drawings = [];
+      clearAllSelection();
+      state.isStacked = true;
+      initCardCoords(true);
+      playTone(350, 'sine');
+      renderDrawings();
+      saveState();
+      updateAll();
+    };
+
+    const btnToolCards = document.getElementById('btnToolCards');
+    btnToolCards.onclick = () => {
+      state.showCards = !state.showCards;
+      btnToolCards.className = state.showCards
+        ? 'w-11 sm:w-13 h-15 sm:h-18 bg-sky-200 border-2 border-sky-500 rounded-xl flex items-center justify-center shadow active:scale-95 transition shrink-0'
+        : 'w-11 sm:w-13 h-15 sm:h-18 bg-white border-2 border-slate-300 rounded-xl flex items-center justify-center shadow active:scale-95 transition opacity-60 shrink-0';
+      playTone(500, 'triangle');
+      renderArrowCards();
+    };
+
+    const btnToolBlocks = document.getElementById('btnToolBlocks');
+    btnToolBlocks.onclick = () => {
+      state.showBlocks = !state.showBlocks;
+      btnToolBlocks.className = state.showBlocks
+        ? 'w-11 sm:w-13 h-15 sm:h-18 bg-sky-200 border-2 border-sky-500 rounded-xl flex items-center justify-center shadow active:scale-95 transition shrink-0'
+        : 'w-11 sm:w-13 h-15 sm:h-18 bg-white border-2 border-slate-300 rounded-xl flex items-center justify-center shadow active:scale-95 transition opacity-60 shrink-0';
+      playTone(520, 'sine');
+      renderBlocks();
+    };
+
+    const btnToolAbacus = document.getElementById('btnToolAbacus');
+    const layerAbacus = document.getElementById('layerAbacus');
+    btnToolAbacus.onclick = () => {
+      state.showAbacus = !state.showAbacus;
+      if (state.showAbacus) {
+        layerAbacus.classList.remove('hidden');
+        btnToolAbacus.className = 'w-11 sm:w-13 h-15 sm:h-18 bg-sky-200 border-2 border-sky-500 rounded-xl flex flex-col items-center justify-center shadow active:scale-95 transition shrink-0';
+      } else {
+        layerAbacus.classList.add('hidden');
+        btnToolAbacus.className = 'w-11 sm:w-13 h-15 sm:h-18 bg-white border-2 border-slate-300 rounded-xl flex flex-col items-center justify-center shadow active:scale-95 transition shrink-0';
+      }
+      playTone(640, 'sine');
+      renderAbacus();
+    };
+
+    /* COLOR PICKER MODAL */
+    const modalColor = document.getElementById('modalColor');
+    const btnOpenColorModal = document.getElementById('btnOpenColorModal');
+    const btnCloseColorModal = document.getElementById('btnCloseColorModal');
+    const btnSaveColorModal = document.getElementById('btnSaveColorModal');
+    const btnResetColorDefault = document.getElementById('btnResetColorDefault');
+
+    const pickerTt = document.getElementById('pickerTt');
+    const pickerTh = document.getElementById('pickerTh');
+    const pickerH  = document.getElementById('pickerH');
+    const pickerT  = document.getElementById('pickerT');
+    const pickerO  = document.getElementById('pickerO');
+
+    btnOpenColorModal.onclick = () => {
+      modalColor.classList.remove('hidden');
+      applyUIColors();
+      playTone(680, 'sine');
+    };
+
+    const closeModal = () => {
+      modalColor.classList.add('hidden');
+      playTone(400, 'sine');
+    };
+
+    btnCloseColorModal.onclick = closeModal;
+    btnSaveColorModal.onclick = () => {
+      closeModal();
+      forceRedrawAllBlockSVGs();
+      updateAll();
+    };
+
+    if (pickerTt) pickerTt.addEventListener('input', (e) => { placeColors.tt = e.target.value; updateAll(); });
+    if (pickerTh) pickerTh.addEventListener('input', (e) => { placeColors.th = e.target.value; forceRedrawAllBlockSVGs(); updateAll(); });
+    if (pickerH)  pickerH.addEventListener('input',  (e) => { placeColors.h  = e.target.value; forceRedrawAllBlockSVGs(); updateAll(); });
+    if (pickerT)  pickerT.addEventListener('input',  (e) => { placeColors.t  = e.target.value; forceRedrawAllBlockSVGs(); updateAll(); });
+    if (pickerO)  pickerO.addEventListener('input',  (e) => { placeColors.o  = e.target.value; forceRedrawAllBlockSVGs(); updateAll(); });
+
+    btnResetColorDefault.onclick = () => {
+      placeColors.tt = '#7c3aed';
+      placeColors.th = '#2563eb';
+      placeColors.h  = '#16a34a';
+      placeColors.t  = '#facc15';
+      placeColors.o  = '#dc2626';
+      forceRedrawAllBlockSVGs();
+      updateAll();
+      playTone(550, 'sine');
+    };
+
+    const btnToggleBottomBar = document.getElementById('btnToggleBottomBar');
+    const bottomFooter = document.getElementById('bottomFooter');
+    const iconToggleBottom = document.getElementById('iconToggleBottom');
+    const txtToggleBottom = document.getElementById('txtToggleBottom');
+
+    btnToggleBottomBar.onclick = () => {
+      state.isBottomBarCollapsed = !state.isBottomBarCollapsed;
+      bottomFooter.classList.toggle('collapsed', state.isBottomBarCollapsed);
+      if (state.isBottomBarCollapsed) {
+        iconToggleBottom.textContent = '⌃';
+        txtToggleBottom.textContent = 'បង្ហាញរបារ';
+      } else {
+        iconToggleBottom.textContent = '⌄';
+        txtToggleBottom.textContent = 'លាក់របារ';
+      }
+      playTone(520, 'sine', 0.05);
+    };
+
+    /* POINTER / BRUSH CONTROLS */
+    const btnToolPointer = document.getElementById('btnToolPointer');
+    const btnToolPen = document.getElementById('btnToolPen');
+    const btnPenColorDot = document.getElementById('btnPenColorDot');
+    const nativePenColorInput = document.getElementById('nativePenColorInput');
+    const btnToolClearDraw = document.getElementById('btnToolClearDraw');
+    const penOptionsBar = document.getElementById('penOptionsBar');
+    const sideBtnPan = document.getElementById('sideBtnPan');
+    const brushSizeSlider = document.getElementById('brushSizeSlider');
+    const brushSizePreview = document.getElementById('brushSizePreview');
+
+    function updateBrushColorsUI(color) {
+      state.penColor = color;
+      btnPenColorDot.style.backgroundColor = color;
+      nativePenColorInput.value = color;
+
+      const penTip = document.getElementById('penTipColor');
+      const highTip = document.getElementById('highlighterTipColor');
+      if (penTip) penTip.setAttribute('fill', color);
+      if (highTip) highTip.setAttribute('fill', color);
+      if (brushSizePreview) brushSizePreview.style.backgroundColor = color;
+    }
+
+    function updateBrushSizeUI(size) {
+      state.brushSize = parseFloat(size);
+      if (brushSizePreview) {
+        const d = Math.max(3, Math.min(22, state.brushSize));
+        brushSizePreview.style.width = `${d}px`;
+        brushSizePreview.style.height = `${d}px`;
+      }
+    }
+
+    if (brushSizeSlider) {
+      brushSizeSlider.addEventListener('input', (e) => {
+        updateBrushSizeUI(e.target.value);
+      });
+    }
+
+    btnToolPointer.onclick = () => {
+      state.toolMode = 'pointer';
+      document.body.classList.remove('pen-mode');
+      penOptionsBar.classList.add('hidden');
+      btnToolPointer.className = 'w-8 h-8 rounded-full bg-white/25 text-white flex items-center justify-center transition active:scale-90 cursor-pointer shadow-sm';
+      btnToolPen.className = 'w-8 h-8 rounded-full hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition active:scale-90 cursor-pointer';
+      sideBtnPan.classList.remove('bg-blue-600', 'text-white');
+      gridBoard.style.cursor = 'default';
+      playTone(550, 'sine', 0.05);
+    };
+
+    btnToolPen.onclick = () => {
+      if (state.toolMode === 'pen') {
+        penOptionsBar.classList.toggle('hidden');
+      } else {
+        state.toolMode = 'pen';
+        document.body.classList.add('pen-mode');
+        clearAllSelection();
+        penOptionsBar.classList.remove('hidden');
+        btnToolPen.className = 'w-8 h-8 rounded-full bg-white/25 text-white flex items-center justify-center transition active:scale-90 cursor-pointer shadow-sm';
+        btnToolPointer.className = 'w-8 h-8 rounded-full hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition active:scale-90 cursor-pointer';
+        sideBtnPan.classList.remove('bg-blue-600', 'text-white');
+      }
+      playTone(650, 'triangle', 0.05);
+    };
+
+    document.querySelectorAll('.pen-opt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pen-opt-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.brushType = btn.dataset.brush;
+        
+        if (state.brushType === 'pencil') {
+          brushSizeSlider.value = 2.5;
+        } else if (state.brushType === 'pen') {
+          brushSizeSlider.value = 4.5;
+        } else if (state.brushType === 'highlighter') {
+          brushSizeSlider.value = 14;
+        } else if (state.brushType === 'eraser') {
+          brushSizeSlider.value = 20;
+        }
+        updateBrushSizeUI(brushSizeSlider.value);
+        playTone(700, 'sine', 0.04);
+      });
+    });
+
+    nativePenColorInput.addEventListener('input', (e) => {
+      updateBrushColorsUI(e.target.value);
+    });
+
+    document.querySelectorAll('.btn-quick-color').forEach(btn => {
+      btn.addEventListener('click', () => {
+        updateBrushColorsUI(btn.dataset.pencolor);
+        playTone(600, 'sine', 0.04);
+      });
+    });
+
+    sideBtnPan.onclick = () => {
+      if (state.toolMode === 'pan') {
+        btnToolPointer.click();
+      } else {
+        state.toolMode = 'pan';
+        document.body.classList.remove('pen-mode');
+        penOptionsBar.classList.add('hidden');
+        btnToolPointer.className = 'w-7 h-7 rounded-full hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition active:scale-90 cursor-pointer';
+        btnToolPen.className = 'w-8 h-8 rounded-full hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition active:scale-90 cursor-pointer';
+        sideBtnPan.classList.add('bg-blue-600', 'text-white');
+        gridBoard.style.cursor = 'grab';
+        playTone(600, 'sine', 0.06);
+      }
+    };
+
+    btnToolClearDraw.onclick = () => {
+      drawings = [];
+      renderDrawings();
+      saveState();
+      playTone(320, 'sawtooth', 0.08);
+    };
+
+    /* ZOOM & FULLSCREEN */
+    const zoomContainer = document.getElementById('zoomContainer');
+
+    function applyZoomAndPan() {
+      zoomContainer.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoomLevel})`;
+      gridBoard.style.backgroundPosition = `${state.panX}px ${state.panY}px`;
+    }
+
+    const toggleFullscreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      }
+      playTone(700, 'sine', 0.08);
+    };
+    
+    document.getElementById('sideBtnFullscreen').onclick = toggleFullscreen;
+    const btnHeaderFullscreen = document.getElementById('btnHeaderFullscreen');
+    if (btnHeaderFullscreen) btnHeaderFullscreen.onclick = toggleFullscreen;
+
+    document.getElementById('sideBtnUndo').onclick = undo;
+    document.getElementById('sideBtnRedo').onclick = redo;
+
+    document.getElementById('sideBtnGrid').onclick = () => {
+      state.showGrid = !state.showGrid;
+      gridBoard.classList.toggle('no-grid', !state.showGrid);
+      playTone(560, 'sine', 0.05);
+    };
+
+    /* PNG Image Export */
+    document.getElementById('sideBtnSave').onclick = () => {
+      playTone(750, 'triangle', 0.1);
+      const bRect = gridBoard.getBoundingClientRect();
+      const canvas = document.createElement('canvas');
+      canvas.width = bRect.width;
+      canvas.height = bRect.height;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (state.showGrid) {
+        ctx.strokeStyle = 'rgba(203, 213, 225, 0.6)';
+        ctx.lineWidth = 1.5;
+        const offsetX = state.panX % 30;
+        const offsetY = state.panY % 30;
+        for (let x = offsetX; x < canvas.width; x += 30) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = offsetY; y < canvas.height; y += 30) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+      }
+
+      const blockItems = Array.from(gridBoard.querySelectorAll('.draggable-item'));
+      const drawingElements = Array.from(gridBoard.querySelectorAll('.draggable-drawing'));
+      const allExportItems = [...blockItems, ...drawingElements];
+      let loaded = 0;
+
+      const finishSave = () => {
+        const link = document.createElement('a');
+        link.download = 'place-value-board.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
+
+      if (allExportItems.length === 0) {
+        finishSave();
+        return;
+      }
+
+      allExportItems.forEach(item => {
+        const svg = item.querySelector('svg');
+        if (!svg) {
+          loaded++;
+          if (loaded === allExportItems.length) finishSave();
+          return;
+        }
+        const itemX = (parseFloat(item.style.left) || 0) * state.zoomLevel + state.panX;
+        const itemY = (parseFloat(item.style.top) || 0) * state.zoomLevel + state.panY;
+        const itemW = (parseFloat(item.style.width) || svg.clientWidth || 40) * state.zoomLevel;
+        const itemH = (parseFloat(item.style.height) || svg.clientHeight || 40) * state.zoomLevel;
+
+        const xml = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+        const URL = window.URL || window.webkitURL || window;
+        const blobURL = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, itemX, itemY, itemW, itemH);
+          URL.revokeObjectURL(blobURL);
+          loaded++;
+          if (loaded === allExportItems.length) finishSave();
+        };
+        img.src = blobURL;
+      });
+    };
+
+    document.getElementById('sideBtnZoomIn').onclick = () => {
+      state.zoomLevel = Math.min(2.0, state.zoomLevel + 0.15);
+      applyZoomAndPan();
+      playTone(620, 'sine', 0.05);
+    };
+
+    document.getElementById('sideBtnZoomOut').onclick = () => {
+      state.zoomLevel = Math.max(0.6, state.zoomLevel - 0.15);
+      applyZoomAndPan();
+      playTone(450, 'sine', 0.05);
+    };
+
+    /* APP INITIALIZATION */
+    function setupInitialState() {
+      blocks.push({ id: blockIdCounter++, type: 'tt', x: 0, y: 0 });
+      blocks.push({ id: blockIdCounter++, type: 'th', x: 0, y: 0 });
+      blocks.push({ id: blockIdCounter++, type: 'th', x: 0, y: 0 });
+      for (let i = 0; i < 4; i++) blocks.push({ id: blockIdCounter++, type: 'h', x: 0, y: 0 });
+      for (let i = 0; i < 2; i++) blocks.push({ id: blockIdCounter++, type: 't', x: 0, y: 0 });
+      for (let i = 0; i < 5; i++) blocks.push({ id: blockIdCounter++, type: 'o', x: 0, y: 0 });
+
+      recalculateBlockPositions();
+      saveState();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupInitialState();
+      initCardCoords(true);
+      renderCartoonDigits();
+      updateBrushColorsUI('#a855f7');
+      updateBrushSizeUI(4.5);
+      updateAll();
+    });
+
+    window.addEventListener('resize', () => {
+      recalculateBlockPositions();
+      renderBlocks();
+      if (state.isStacked) {
+        initCardCoords(true);
+        renderArrowCards();
+      }
+    });
+  </script>
+</body>
+</html>
